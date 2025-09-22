@@ -1,4 +1,4 @@
-# 7) Classify_Domains_As_News_Sources
+# 6) Classify_Domains_As_News_Sources
 # Does NOT include line: If uncertain after best effort, choose Yes.
 
 # classify_domains.py — GPT-5-Nano via OpenAI Responses API
