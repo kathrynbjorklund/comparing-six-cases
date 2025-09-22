@@ -3,10 +3,10 @@
 library(readr)
 library(dplyr)
 
-in_file   <- "1.csv"                # your combined file
-out_samp  <- "sampled_500.csv"      # sampled output
-out_rest  <- "remaining.csv"        # remainder output
-set.seed(67)                        # reproducibility
+in_file   <- "1.csv"                
+out_samp  <- "Sampled_500.csv"     
+out_rest  <- "Remaining.csv"        
+set.seed(67)                      
 
 df <- read_csv(in_file, show_col_types = FALSE)
 
