@@ -6,13 +6,13 @@ if (length(to_install)) install.packages(to_install, repos = "https://cloud.r-pr
 invisible(lapply(pkgs, library, character.only = TRUE))
 
 files <- c(
-  "run1.csv",
-  "run2.csv",
-  "run3.csv",
-  "run4.csv",
-  "run5.csv"
+  "Run_1.csv",
+  "Run_2.csv",
+  "Run_3.csv",
+  "Run_4.csv",
+  "Run_5.csv"
 )
-out_file <- "consensus_news_iso.csv"
+out_file <- "Consensus_Outlets.csv"
 
 norm_domain <- function(x) {
   x %>% as.character() %>% str_trim() %>% str_to_lower() %>% str_replace("^\ufeff", "")
