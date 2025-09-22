@@ -3,9 +3,9 @@
 library(readr)
 library(dplyr)
 
-in_file   <- "domains.csv"                
-out_samp  <- "domains_sampled_100.csv"     
-out_rest  <- "remaining.csv"        
+in_file   <- "Domains.csv"                
+out_samp  <- "DomainsSampled100.csv"     
+out_rest  <- "Remaining.csv"        
 set.seed(62)                        
 
 df <- read_csv(in_file, show_col_types = FALSE)
