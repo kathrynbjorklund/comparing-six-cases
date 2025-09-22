@@ -10,17 +10,17 @@ suppressPackageStartupMessages({
 })
 
 # ---------- SET YOUR FILES ----------
-gold_file <- "gold.csv"   # ground-truth CSV
-pred_files <- c(          # 5 prediction CSVs
-  "domains_sampled_100.csv",
-  "domains_sampled_100_2.csv",
-  "domains_sampled_100_3.csv",
-  "domains_sampled_100_4.csv",
-  "domains_sampled_100_5.csv"
+gold_file <- "Gold.csv"  
+pred_files <- c(          
+  "Domains_Sampled_100.csv",
+  "Domains_Sampled_100_2.csv",
+  "Domains_Sampled_100_3.csv",
+  "Domains_Sampled_100_4.csv",
+  "Domains_Sampled_100_5.csv"
 )
 target_col <- "News outlet (Yes/No)"  # column to evaluate
 positive_label <- "Yes"               # positive class
-out_file <- "per_run_metrics.csv"
+out_file <- "Per_Run_Metrics.csv"
 # -----------------------------------
 
 norm_names <- function(x) trimws(x)
