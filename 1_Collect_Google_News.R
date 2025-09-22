@@ -45,7 +45,7 @@ if (length(results_list) > 0) {
   combined_df <- do.call(rbind, results_list)
   
   # Write the combined data frame to a CSV file
-  write.csv(combined_df, "~/Desktop/zika_news_2015.csv", row.names = FALSE)
+  write.csv(combined_df, "~/Desktop/ZikaNews2015.csv", row.names = FALSE)
 } else {
   message("No data collected.")
 }
