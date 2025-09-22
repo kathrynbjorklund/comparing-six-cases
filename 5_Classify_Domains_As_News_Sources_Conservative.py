@@ -1,4 +1,4 @@
-# 6) Classify Domains As News Sources (Conservative) 
+# 5) Classify Domains As News Sources (Conservative) 
 # Includes line: If uncertain after best effort, choose Yes.
 
 # classify_domains.py — GPT-5-Nano via OpenAI Responses API
