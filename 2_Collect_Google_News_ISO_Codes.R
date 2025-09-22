@@ -41,13 +41,11 @@ close(pb)
 valid_feeds <- compact(feeds)
 combined_df <- bind_rows(valid_feeds)
 
-# Pick a sensible identifier column for de-duplication
 link_col <- intersect(c("item_link", "link", "guid", "item_guid_id"), names(combined_df))[1]
 if (is.na(link_col)) stop("No link-like column found; check names(combined_df).")
 
 combined_df <- combined_df %>% distinct(.data[[link_col]], .keep_all = TRUE)
 
-# (Optional) convert only character-like columns instead of all columns
 chr_cols <- names(combined_df)[vapply(combined_df, is.character, logical(1))]
 combined_df[chr_cols] <- lapply(combined_df[chr_cols], as.character)
 
