@@ -27,9 +27,9 @@ TYPE_OPTIONS = [
 ]
 
 DEFAULT_MODEL          = "gpt-5-nano"
-DEFAULT_INPUT          = "uniq_dom.csv"
-DEFAULT_OUTPUT         = "classified_domains_api_full_1.csv"
-DEFAULT_BATCH_SIZE     = 50   # safer default than 1000 for long outputs
+DEFAULT_INPUT          = "Uniq_Dom.csv"
+DEFAULT_OUTPUT         = "Classified_Domains_API_Full_1.csv"
+DEFAULT_BATCH_SIZE     = 50   
 
 # progress counter
 PROCESSED_COUNT = 0
@@ -161,7 +161,6 @@ def classify_batch(client: OpenAI, model: str, domains: list[str], max_output_to
         })
     return cleaned
 
-# ---- progress printing every 10 rows ----
 def write_rows(out_path: Path, rows: list[dict], write_header_if_new=True):
     global PROCESSED_COUNT
     file_exists = out_path.exists()
@@ -174,7 +173,6 @@ def write_rows(out_path: Path, rows: list[dict], write_header_if_new=True):
             if PROGRESS_EVERY and PROCESSED_COUNT % PROGRESS_EVERY == 0:
                 print(f"processed {PROCESSED_COUNT} links", flush=True)
 
-# ---- simple quality guard for degenerate tails ----
 def _degenerate_tail(rows: list[dict]) -> bool:
     """
     Returns True if the last up-to-100 rows look degenerate:
@@ -216,7 +214,7 @@ def _process_batch_with_quality(client, args, batch_domains, out_path, label="ba
 # ---- batches-only runner ----
 def run_batches_only(client, args, domains):
     out_path = Path(args.output)
-    out_path.write_text(HEADER + "\n", encoding="utf-8")  # fresh file
+    out_path.write_text(HEADER + "\n", encoding="utf-8")  
 
     total = len(domains)
     batch_size = args.batch_size
@@ -249,7 +247,7 @@ def main():
     print(f"Loaded {total} lines (order preserved; duplicates kept).")
     print(f"Model: {args.model}")
 
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))  # use standard env var
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY")) 
 
     run_batches_only(client, args, domains)
     print("Done.")
