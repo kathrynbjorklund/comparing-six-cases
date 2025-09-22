@@ -4,7 +4,7 @@ library(readr)
 library(dplyr)
 
 in_file   <- "Domains.csv"                
-out_samp  <- "DomainsSampled100.csv"     
+out_samp  <- "Domains_Sampled_100.csv"     
 out_rest  <- "Remaining.csv"        
 set.seed(62)                        
 
