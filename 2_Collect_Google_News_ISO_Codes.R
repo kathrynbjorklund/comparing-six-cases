@@ -51,5 +51,5 @@ combined_df <- combined_df %>% distinct(.data[[link_col]], .keep_all = TRUE)
 chr_cols <- names(combined_df)[vapply(combined_df, is.character, logical(1))]
 combined_df[chr_cols] <- lapply(combined_df[chr_cols], as.character)
 
-write_csv(combined_df, "~/Desktop/Dengue_iso_en.csv")
+write_csv(combined_df, "~/Desktop/Dengue_ISO_EN.csv")
 
