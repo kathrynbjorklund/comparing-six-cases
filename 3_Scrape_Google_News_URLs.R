@@ -554,7 +554,7 @@ for (batch in seq_len(num_batches)) {
   all_results[[batch]] <- batch_df
   
   # Write partial CSV for each batch
-  out_file <- paste0("Zika_batch_", batch, ".csv")
+  out_file <- paste0("Zika_Batch_", batch, ".csv")
   write.csv(batch_df, out_file, row.names = FALSE)
   cat("   => Batch", batch, "written to", out_file, "\n")
 }
