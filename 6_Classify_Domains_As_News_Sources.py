@@ -27,8 +27,8 @@ TYPE_OPTIONS = [
 ]
 
 DEFAULT_MODEL          = "gpt-5-nano"
-DEFAULT_INPUT          = "uniq_dom_isocopy.csv"
-DEFAULT_OUTPUT         = "class_dom__iso_api_full_5.csv"
+DEFAULT_INPUT          = "Uniq_Dom.csv"
+DEFAULT_OUTPUT         = "Classified_Domains_API_Full_1.csv"
 DEFAULT_BATCH_SIZE     = 25  
 
 # progress counter
