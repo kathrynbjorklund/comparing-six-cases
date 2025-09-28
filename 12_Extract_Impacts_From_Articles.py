@@ -1,48 +1,47 @@
-12) Extract Impacts From Articles
-
 import os, json, time, argparse, re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import pandas as pd
 from openai import OpenAI
 
+# ------------- CONFIG (edit defaults here) -------------
 MODEL             = "gpt-5-nano"
 INPUT_FILE        = "25_Sampled_GPT_Trial.csv"            # must contain 'full.text'
 OUT_JSON_RECORDS  = "25_Sampled_GPT_Trial_Impacts_Records.json"  # flat, analysis-ready
 OUT_JSON_NESTED   = "25_Sampled_GPT_Trial_Impacts_Nested.json"   # raw/nested per-article
-OUT_CSV           = "25_Sampled_GPT_Trial_Impacts_Extracted_V4.csv"
-CATS_JSON         = "Impact_Categories_V4.json"
+OUT_CSV           = "25_Sampled_GPT_Trial_Impacts_Extracted_V5.csv"
+CATS_JSON         = "Impact_Categories_V5.json"
 BATCH_SIZE        = 5
 SLEEP_SEC         = 0.2
 # -------------------------------------------------------
 
-# OG columns
+# ORIGINAL columns (exact order you want)
 ORIGINAL_COLS = [
     "feed_title","feed_link","feed_description","feed_language","url",
     "item_description","item_title","real.url","domain","publication.date",
-    "full.text","Domain","NewsYN","RelevantYN"
+    "full.text","Domain","NewsYN","RelevantYN", "species"
 ]
 
-# NEW columns
 NEW_COLS = [
     "article_id","observed_impact_text","cause_of_impact_text",
     "location_of_impact_text","aggregated_location","time_of_impact_text",
     "category_of_impact"
 ]
 
-# Allowed values for aggregated_location
-AGG_LOC_ENUM = ["Municipality","Country","Continent","Globe"]
+AGG_LOC_ENUM = ["GADM0","GADM1","GADM2","GADM3","GADM4","GADM5","Continent","Globe"]  
 
 SYSTEM_DISCOVER = """You are a research scientist extracting *observed* impacts of emerging pests and pathogens (EPPs) from news articles.
 
-Scope — extract impacts that the article attributes to EPPs (as described in the text).
+Scope — for each article, the EPP species is provided (from the dataset’s `species` column). Extract only impacts that the article attributes to THAT species in the article’s full text.
 
 Rules:
-- The cause_of_impact_text is the underlying driver or mechanism described for that impact; it MUST NOT be identical to observed_impact_text. If no cause is stated, return "N/A".
+- Every impact MUST be attributable to the provided EPP species for that article. Do NOT attribute to other agents. If the text does not attribute an impact to this species, do not return that impact.
+- If the species is missing for an article, return impacts: [] for that article.
+- The cause_of_impact_text is the underlying driver/mechanism; it MUST NOT be identical to observed_impact_text. If no cause is stated, return "N/A".
 - Use ONLY information present in the text. Do NOT infer beyond what the article states.
 - Ignore prescriptive/normative statements (e.g., "should", "must").
 - If a field is missing, return "N/A" exactly.
-- Aggregated Location of Impact: choose the LEVEL CLOSEST to the location of impact as stated in the text (not the place name), using exactly one of: Municipality, Country, Continent, Globe. If unclear, use "N/A".
+- Aggregated Location of Impact: select the CLOSEST administrative level to how the location is stated in the text, using exactly one of: GADM0, GADM1, GADM2, GADM3, GADM4, GADM5, Continent, Globe. If unclear, use "N/A".
 
 For each article return:
 - article_id (integer; index provided)
@@ -51,20 +50,22 @@ For each article return:
   * observed_impact_text (verbatim observed impact as written in text)
   * cause_of_impact_text (verbatim cause of observed impact as written in text; "N/A" if absent)
   * location_of_impact_text (verbatim location of observed impact as written in text; "N/A" if absent)
-  * aggregated_location (one of: Municipality/Country/Continent/Globe; or "N/A")
-  * time_of_impact_text (verbatim time of observed impact  as written in text; "N/A" if absent)
+  * aggregated_location (one of: GADM0/GADM1/GADM2/GADM3/GADM4/GADM5/Continent/Globe; or "N/A")
+  * time_of_impact_text (verbatim time of observed impact as written in text; "N/A" if absent)
 """
 
 SYSTEM_APPLY_TEMPLATE = """You are a research scientist extracting *observed* impacts of emerging pests and pathogens (EPPs) from news articles.
 
-Scope — extract impacts that the article attributes to EPPs (as described in the text).
+Scope — for each article, the EPP species is provided (from the dataset’s `species` column). Extract only impacts that the article attributes to THAT species in the article’s full text.
 
 Rules:
+- Every impact MUST be attributable to the provided EPP species for that article. Do NOT attribute to other agents. If the text does not attribute an impact to this species, do not return that impact.
+- If the species is missing for an article, return impacts: [] for that article.
 - The cause_of_impact_text is the underlying driver or mechanism described for that impact; it MUST NOT be identical to observed_impact_text. If no cause is stated, return "N/A".
 - Use ONLY information in the text; do not infer beyond what is stated.
 - Ignore prescriptive/normative statements (e.g., "should", "must").
 - If a field is missing, return "N/A" exactly.
-- Aggregated Location of Impact: choose the LEVEL CLOSEST to the location of impact as stated in the text (not the place name), using exactly one of: Municipality, Country, Continent, Globe. If unclear, use "N/A".
+- Aggregated Location of Impact: select the CLOSEST administrative level to how the location is stated in the text, using exactly one of: GADM0, GADM1, GADM2, GADM3, GADM4, GADM5, Continent, Globe. If unclear, use "N/A".
 
 Use this fixed category set for category_of_impact (choose exactly one):
 {category_list}
@@ -76,7 +77,7 @@ For each article return:
   * observed_impact_text (verbatim observed impact as written in text)
   * cause_of_impact_text (verbatim cause of observed impact as written in text; "N/A" if absent)
   * location_of_impact_text (verbatim location of observed impact as written in text; "N/A" if absent)
-  * aggregated_location (one of: Municipality/Country/Continent/Globe; "N/A" if absent)
+  * aggregated_location (one of: GADM0/GADM1/GADM2/GADM3/GADM4/GADM5/Continent/Globe; "N/A" if absent)
   * time_of_impact_text (verbatim time of observed impact as written in text; "N/A" if absent)
 """
 
@@ -135,7 +136,7 @@ def make_schema(batch_size: int, mode: str, enum_categories: Optional[List[str]]
         "observed_impact_text": {"type": "string"},
         "cause_of_impact_text": {"type": "string"},
         "location_of_impact_text": {"type": "string"},
-        "aggregated_location": {"type": "string", "enum": AGG_LOC_ENUM + ["N/A"]},
+        "aggregated_location": {"type": "string", "enum": AGG_LOC_ENUM + ["N/A"]},  
         "time_of_impact_text": {"type": "string"},
     }
     if mode == "discover":
@@ -170,10 +171,30 @@ def make_schema(batch_size: int, mode: str, enum_categories: Optional[List[str]]
         "required": ["rows"]
     }
 
-def build_messages(texts: List[str], start_index: int, system_prompt: str) -> list:
-    numbered = "\n\n".join([f"Article {start_index + i}: {t}" for i, t in enumerate(texts, start=1)])
+def build_messages(texts: List[str], species_list: List[str], start_index: int, system_prompt: str) -> list:
+    """
+    species_list: same length as texts; each entry is this row's `species` (expected exactly one species per article).
+    If species is missing/blank, the model is instructed to return impacts: [].
+    """
+    def _one_species(cell: str) -> str:
+        if not isinstance(cell, str):
+            return ""
+        parts = [p.strip() for p in re.split(r"[;,|/]", cell) if p.strip()]
+        return parts[0] if parts else ""
+
+    numbered = []
+    for i, (t, sp) in enumerate(zip(texts, species_list), start=1):
+        sp_clean = _one_species(sp)
+        if sp_clean:
+            header = f"Article {start_index + i}: [Species: {sp_clean}]"
+        else:
+            header = f"Article {start_index + i}: [Species: (missing) → return impacts: []]"
+        numbered.append(f"{header}\n{t}")
+    numbered = "\n\n".join(numbered)
+
     user = (
         "Extract observed impacts for each article separately. "
+        "Only return impacts attributable to the provided species for that article. "
         "Return a JSON object with key 'rows'; each element must correspond to the article at the same position "
         "and include 'article_id' and 'impacts' (array of items, one per impact).\n\n"
         + numbered
@@ -181,12 +202,12 @@ def build_messages(texts: List[str], start_index: int, system_prompt: str) -> li
     return [{"role": "system", "content": system_prompt},
             {"role": "user", "content": user}]
 
-def call_batch(client: OpenAI, texts: List[str], start_index: int, mode: str, enum_categories: Optional[List[str]]) -> dict:
+def call_batch(client: OpenAI, texts: List[str], species_batch: List[str], start_index: int, mode: str, enum_categories: Optional[List[str]]) -> dict:
     schema = make_schema(len(texts), mode=mode, enum_categories=enum_categories)
     system = SYSTEM_DISCOVER if mode == "discover" else SYSTEM_APPLY_TEMPLATE.format(
         category_list=", ".join(f'"{c}"' for c in enum_categories)
     )
-    msgs = build_messages(texts, start_index, system)
+    msgs = build_messages(texts, species_batch, start_index, system)
     resp = client.responses.create(
         model=MODEL,
         input=msgs,
@@ -238,7 +259,11 @@ def run_mode(mode: str, input_file: str, sample_size: Optional[int], categories_
     df = pd.read_csv(input_file)
     if "full.text" not in df.columns:
         raise ValueError("Input CSV must contain a 'full.text' column.")
+    if "species" not in df.columns:
+        raise ValueError("Input CSV must contain a 'species' column for species-level attribution.")
+
     texts_all = df["full.text"].astype(str).tolist()
+    species_all = df["species"].astype(str).tolist()
 
     # Keep/align original columns (in your exact order), add if missing
     base_df = _ensure_columns(df.copy(), ORIGINAL_COLS)
@@ -246,13 +271,15 @@ def run_mode(mode: str, input_file: str, sample_size: Optional[int], categories_
     if mode == "discover":
         n = min(sample_size or 50, len(texts_all))
         texts = texts_all[:n]
+        species_subset = species_all[:n]
         print(f"Discovering categories on first {n} articles...")
         all_rows = []
         for s in range(0, n, BATCH_SIZE):
             e = min(s + BATCH_SIZE, n)
-            batch = texts[s:e]
+            batch_texts = texts[s:e]
+            batch_species = species_subset[s:e]
             print(f"  batch {s+1}–{e}")
-            data = call_batch(client, batch, start_index=s, mode="discover", enum_categories=None)
+            data = call_batch(client, batch_texts, batch_species, start_index=s, mode="discover", enum_categories=None)
             all_rows.extend(data["rows"])
             time.sleep(SLEEP_SEC)
 
@@ -291,9 +318,10 @@ def run_mode(mode: str, input_file: str, sample_size: Optional[int], categories_
         all_rows = []
         for s in range(0, len(texts_all), BATCH_SIZE):
             e = min(s + BATCH_SIZE, len(texts_all))
-            batch = texts_all[s:e]
+            batch_texts = texts_all[s:e]
+            batch_species = species_all[s:e]
             print(f"  batch {s+1}–{e}")
-            data = call_batch(client, batch, start_index=s, mode="apply", enum_categories=enum_categories)
+            data = call_batch(client, batch_texts, batch_species, start_index=s, mode="apply", enum_categories=enum_categories)
             all_rows.extend(data["rows"])
             time.sleep(SLEEP_SEC)
 
@@ -338,8 +366,8 @@ def main():
                  Path(args.out_json_nested).with_suffix(".apply.json"),
                  Path(args.out_csv).with_suffix(".apply.csv"))
     else:
-        run_mode(mode, args.input, args.sample_size, Path(args.categories),
-                 Path(args.out_json_records), Path(args.out_json_nested), Path(args.out_csv))
+        run_mode(mode, args.input, args.sample_size, Path(args.out_json_records),
+                 Path(args.out_json_nested), Path(args.out_csv))
 
 if __name__ == "__main__":
     main()
