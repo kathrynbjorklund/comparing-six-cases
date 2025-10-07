@@ -37,20 +37,19 @@ Important rules:
 
 Output format:
 - For each text, return only a single field 'relevant' with value "Yes" or "No".
-- If uncertain after best effort, default to "Yes".
-"""
+- Do not output anything else.
+"""  # CHANGED: REMOVED the line 'If uncertain after best effort, default to "Yes".'
 
-def classify_batch(client: OpenAI, texts: list[str]) -> list[str]:
-    """Return one 'Yes'/'No' per input text. Enforces exact-length JSON via schema."""
-    n = len(texts)
-    schema = {
+def _schema(n: int) -> dict:
+    # ADDED: factored schema to a function (no behavior change)
+    return {
         "type": "object",
         "additionalProperties": False,
         "properties": {
             "rows": {
                 "type": "array",
-                "minItems": n,                 
-                "maxItems": n,                
+                "minItems": n,
+                "maxItems": n,
                 "items": {
                     "type": "object",
                     "additionalProperties": False,
@@ -63,6 +62,29 @@ def classify_batch(client: OpenAI, texts: list[str]) -> list[str]:
         },
         "required": ["rows"]
     }
+
+def _validate_labels(raw: dict, n: int) -> List[str]:
+    """Validate and return exactly n labels, each 'Yes' or 'No'; else raise."""
+    # ADDED: strict validator (replaces all defaults/padding)
+    if not isinstance(raw, dict) or "rows" not in raw or not isinstance(raw["rows"], list):
+        raise ValueError("Missing or invalid 'rows' array in model output.")
+    rows = raw["rows"]
+    if len(rows) != n:
+        raise ValueError(f"Expected {n} rows, got {len(rows)}.")
+    labels = []
+    for i, r in enumerate(rows, start=1):
+        if not isinstance(r, dict) or "relevant" not in r:
+            raise ValueError(f"Row {i} missing 'relevant' field.")
+        v = r["relevant"]
+        if v not in ("Yes", "No"):
+            raise ValueError(f"Row {i} has invalid value '{v}'.")
+        labels.append(v)
+    return labels
+
+def classify_batch(client: OpenAI, texts: List[str]) -> List[str]:
+    """Single try. No defaults. Raises on any invalid/malformed response."""
+    n = len(texts)
+    schema = _schema(n)
 
     msgs = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -85,18 +107,17 @@ def classify_batch(client: OpenAI, texts: list[str]) -> list[str]:
         },
     )
 
-    data = json.loads(resp.output_text or "{}")
-    labels = [row.get("relevant", "Yes") for row in data.get("rows", [])]
+    # ORIGINAL:
+    # data = json.loads(resp.output_text or "{}")
+    # labels = [row.get("relevant", "Yes") for row in data.get("rows", [])]
+    # if len(labels) < n: labels += ["Yes"] * (n - len(labels))
+    # elif len(labels) > n: labels = labels[:n]
+    # labels = ["Yes" if x not in ("Yes", "No") else x for x in labels]
+    # return labels
 
-    # Final guard: normalize to exact batch length
-    if len(labels) < n:
-        labels += ["Yes"] * (n - len(labels))   
-    elif len(labels) > n:
-        labels = labels[:n]                    
-
-    
-    labels = ["Yes" if x not in ("Yes", "No") else x for x in labels]
-    return labels
+    # CHANGED: strict parsing + validation; no defaults, no padding, no coercion
+    raw = json.loads(resp.output_text or "{}")
+    return _validate_labels(raw, n)
 
 def main():
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -109,7 +130,7 @@ def main():
         raise ValueError("Input CSV must contain a 'full.text' column.")
 
     texts = df["full.text"].astype(str).tolist()
-    results: list[str] = []
+    results: List[str] = []
 
     total = len(texts)
     print(f"Loaded {total} rows from {INPUT_FILE}")
@@ -118,23 +139,29 @@ def main():
         end = min(start + BATCH_SIZE, total)
         batch = texts[start:end]
         print(f"Processing {start+1}–{end} / {total}")
-        try:
-            labels = classify_batch(client, batch)
-        except Exception as e:
-            print(f"Batch {start//BATCH_SIZE + 1} error: {e}")
-            labels = ["Yes"] * len(batch)  # safe fallback per your policy
-        
+        # ORIGINAL wrapped in try/except with default "Yes" fallback:
+        # try:
+        #     labels = classify_batch(client, batch)
+        # except Exception as e:
+        #     print(f"Batch {start//BATCH_SIZE + 1} error: {e}")
+        #     labels = ["Yes"] * len(batch)  # fallback
+        #
+        # if len(labels) != len(batch):
+        #     print(...)
+        #     labels = (labels + ["Yes"] * len(batch))[:len(batch)]
+
+        # CHANGED: one call, no retries, no fallback—fail fast on error
+        labels = classify_batch(client, batch)  # raises if invalid
         if len(labels) != len(batch):
-            print(f"Warning: got {len(labels)} labels for a {len(batch)}-item batch; normalizing.")
-            labels = (labels + ["Yes"] * len(batch))[:len(batch)]
+            # Should never happen thanks to strict validation
+            raise RuntimeError(f"Got {len(labels)} labels for a {len(batch)}-item batch.")
+
         results.extend(labels)
         time.sleep(SLEEP_SEC)
 
-   
     df["RelevantYN"] = results
     df.to_csv(OUTPUT_FILE, index=False)
     print(f"Saved → {OUTPUT_FILE} (rows: {len(df)})")
 
 if __name__ == "__main__":
     main()
-
