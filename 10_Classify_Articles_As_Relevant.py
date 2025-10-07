@@ -16,7 +16,7 @@ from openai import OpenAI
 MODEL       = "gpt-5-nano"
 INPUT_FILE  = "Sampled500ForNanoClassification.csv"        
 OUTPUT_FILE = "500SampleNanoClass.csv"           
-BATCH_SIZE  = 15                   
+BATCH_SIZE  = 1                   
 SLEEP_SEC   = 0.2                   
 
 SYSTEM_PROMPT = """You are a strict binary classifier for article relevance.
