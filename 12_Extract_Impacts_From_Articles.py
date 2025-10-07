@@ -11,7 +11,7 @@ OUT_JSON_RECORDS  = "25_Sampled_GPT_Trial_Impacts_Records.json"  # flat, analysi
 OUT_JSON_NESTED   = "25_Sampled_GPT_Trial_Impacts_Nested.json"   # raw/nested per-article
 OUT_CSV           = "25_Sampled_GPT_Trial_Impacts_Extracted_V5.csv"
 CATS_JSON         = "Impact_Categories_V5.json"
-BATCH_SIZE        = 5
+BATCH_SIZE        = 1
 SLEEP_SEC         = 0.2
 # -------------------------------------------------------
 
