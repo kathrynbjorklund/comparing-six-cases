@@ -1,4 +1,4 @@
-# 7) Performance Metrics (Recall, Precision, F1)
+# 6) Performance Metrics (Recall, Precision, F1)
 
 # Compare 1 gold CSV vs 5 prediction CSVs for "News outlet (Yes/No)"
 
