@@ -1,6 +1,3 @@
-# 5) Classify Domains As News Sources (Conservative) 
-# Includes line: If uncertain after best effort, choose Yes.
-
 # classify_domains.py — GPT-5-Nano via OpenAI Responses API
 # - Batches only (uses Structured Outputs JSON Schema)
 # - Quality guard: auto-split and retry if a batch tail looks degenerate
@@ -27,13 +24,13 @@ TYPE_OPTIONS = [
 ]
 
 DEFAULT_MODEL          = "gpt-5-nano"
-DEFAULT_INPUT          = "Uniq_Dom.csv"
-DEFAULT_OUTPUT         = "Classified_Domains_API_Full_Con_1.csv"
-DEFAULT_BATCH_SIZE     = 1   
+DEFAULT_INPUT          = "Unique_Domains_All.csv"
+DEFAULT_OUTPUT         = "Dom_All_GPT_Class_1.csv"
+DEFAULT_BATCH_SIZE     = 1 
 
 # progress counter
 PROCESSED_COUNT = 0
-PROGRESS_EVERY  = 50 
+PROGRESS_EVERY  = 50  # change to 0 to disable
 
 SYSTEM_INSTRUCTIONS = """JSON-only domain classifier. TOP-LEVEL OUTPUT MUST BE AN OBJECT with a key `rows`.
 `rows` must be an array with EXACTLY one item per input domain, in the SAME ORDER. Do not skip any.
@@ -54,7 +51,6 @@ Rules:
   No examples: government websites (e.g., nih.gov, blogs.cdc.gov), intergovernmental organization websites (e.g., who.int, paho.org), research institute websites (e.g., pewresearch.org, pasteur.fr), university websites (e.g., publichealth.jhu.edu,
            urmc.rochester.edu), scientific journal websites (e.g., nature.com, bmcinfectdis.biomedcentral.com), magazine websites (e.g., scientificamerican.com, wanderlustmagazine.com),
            tabloid websites (e.g., tmz.com, dailymail.co.uk).
-- If uncertain after best effort, choose Yes.
 - Output MUST strictly conform to the JSON Schema provided by the API.
 - No explanations or extra text—only the required JSON object.
 """
@@ -161,6 +157,7 @@ def classify_batch(client: OpenAI, model: str, domains: list[str], max_output_to
         })
     return cleaned
 
+# ---- progress printing every 10 rows ----
 def write_rows(out_path: Path, rows: list[dict], write_header_if_new=True):
     global PROCESSED_COUNT
     file_exists = out_path.exists()
@@ -173,6 +170,7 @@ def write_rows(out_path: Path, rows: list[dict], write_header_if_new=True):
             if PROGRESS_EVERY and PROCESSED_COUNT % PROGRESS_EVERY == 0:
                 print(f"processed {PROCESSED_COUNT} links", flush=True)
 
+# ---- simple quality guard for degenerate tails ----
 def _degenerate_tail(rows: list[dict]) -> bool:
     """
     Returns True if the last up-to-100 rows look degenerate:
@@ -214,7 +212,7 @@ def _process_batch_with_quality(client, args, batch_domains, out_path, label="ba
 # ---- batches-only runner ----
 def run_batches_only(client, args, domains):
     out_path = Path(args.output)
-    out_path.write_text(HEADER + "\n", encoding="utf-8")  
+    out_path.write_text(HEADER + "\n", encoding="utf-8")  # fresh file
 
     total = len(domains)
     batch_size = args.batch_size
@@ -247,11 +245,10 @@ def main():
     print(f"Loaded {total} lines (order preserved; duplicates kept).")
     print(f"Model: {args.model}")
 
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY")) 
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))  # use standard env var
 
     run_batches_only(client, args, domains)
     print("Done.")
 
 if __name__ == "__main__":
     main()
-
